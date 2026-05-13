@@ -1,0 +1,61 @@
+version: '3.9'
+
+services:
+  mongo:
+    image: mongo:7.0
+    container_name: auction_mongo_dev
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_dev_data:/data/db
+    networks:
+      - auction_dev
+
+  backend:
+    build:
+      context: ./backend
+      target: builder
+    container_name: auction_backend_dev
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    command: npm run dev
+    environment:
+      PORT: 5000
+      NODE_ENV: development
+      MONGO_URI: mongodb://mongo:27017/auctiondb
+      JWT_SECRET: dev_secret_key_minimum_32_characters
+      JWT_EXPIRES_IN: 7d
+      CLIENT_URL: http://localhost:5173
+    depends_on:
+      - mongo
+    networks:
+      - auction_dev
+
+  frontend:
+    image: node:20-alpine
+    container_name: auction_frontend_dev
+    working_dir: /app
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    ports:
+      - "5173:5173"
+    command: sh -c "npm install && npm run dev -- --host"
+    environment:
+      VITE_API_URL: http://localhost:5000/api
+      VITE_SOCKET_URL: http://localhost:5000
+    depends_on:
+      - backend
+    networks:
+      - auction_dev
+
+volumes:
+  mongo_dev_data:
+
+networks:
+  auction_dev:
+    driver: bridge
